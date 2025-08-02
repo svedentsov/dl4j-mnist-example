@@ -1,0 +1,38 @@
+groups:
+  - name: MLServiceAlerts
+    rules:
+      # Правило 1: Высокая задержка ответа (P95 > 250 мс)
+      # Отслеживает производительность сервиса.
+      - alert: HighRequestLatency
+        # Вычисляем 95-й перцентиль задержки за последние 2 минуты.
+        expr: histogram_quantile(0.95, sum(rate(predictions_latency_seconds_bucket[2m])) by (le, job)) > 0.25
+        for: 1m # Алерт сработает, если условие выполняется в течение 1 минуты.
+        labels:
+          severity: warning # Уровень критичности.
+        annotations:
+          summary: "Высокая задержка запросов (P95) в сервисе {{ $labels.job }}"
+          description: "95-й перцентиль задержки превысил 250 мс. Текущее значение: {{ $value }}s."
+
+      # Правило 2: Высокий процент ошибок предсказания
+      # Отслеживает качество работы ML-модели.
+      - alert: HighPredictionErrorRate
+        # Рассчитываем долю ошибок от общего числа запросов за 5 минут и сравниваем с порогом в 5%.
+        expr: (sum(rate(predictions_errors_total[5m])) by (job) / sum(rate(predictions_requests_total_total[5m])) by (job)) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Высокий процент ошибок в сервисе {{ $labels.job }}"
+          description: "Более 5% запросов на предсказание завершились с ошибкой. Текущий процент: {{ $value }}%."
+
+      # Правило 3: Сервис недоступен (не отдает метрики)
+      # Базовое правило для проверки доступности сервиса.
+      - alert: ServiceDown
+        # Метрика `up` автоматически создается Prometheus'ом. `up == 0` означает, что цель недоступна.
+        expr: up{job="mnist-ml-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Сервис {{ $labels.job }} недоступен."
+          description: "Prometheus не может получить метрики от инстанса {{ $labels.instance }}."

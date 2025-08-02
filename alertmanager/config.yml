@@ -1,0 +1,49 @@
+global:
+  # URL для Slack-интеграции. Замените на реальный.
+  # slack_api_url: '<your_slack_webhook_url>'
+  resolve_timeout: 5m
+
+# Шаблоны для кастомизации уведомлений. Можно вынести в отдельный файл.
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  # Корневой маршрут, на который попадают все алерты.
+  receiver: 'default-receiver'
+  group_by: ['alertname', 'job']
+  # Группировать алерты в одно уведомление в течение 5 минут.
+  group_wait: 30s
+  group_interval: 5m
+  # Отправлять повторное уведомление, если алерт не разрешился в течение 4 часов.
+  repeat_interval: 4h
+
+  # Дочерние маршруты для разной логики обработки.
+  routes:
+    - receiver: 'critical-alerts'
+      matchers:
+        - severity = 'critical'
+      continue: false # Если алерт сматчился, дальше не идем.
+
+    - receiver: 'warning-alerts'
+      matchers:
+        - severity = 'warning'
+
+receivers:
+  - name: 'default-receiver'
+    # Используем webhook для гибкости. Можно заменить на slack_configs, email_configs и т.д.
+    webhook_configs:
+      - url: 'http://localhost:5001/' # Пример URL, который может обрабатывать алерты
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    # Для критических алертов можно использовать другой канал, например PagerDuty.
+    # pagerduty_configs:
+    #   - routing_key: <your_pagerduty_routing_key>
+    webhook_configs:
+      - url: 'http://localhost:5001/critical'
+        send_resolved: true
+
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/warning'
+        send_resolved: true

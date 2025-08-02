@@ -1,0 +1,58 @@
+global:
+  # URL для Slack-интеграции. Замените на реальный.
+  # slack_api_url: '<your_slack_webhook_url>'
+  # Алерт считается разрешенным, если уведомление о его разрешении не пришло в течение 5 минут.
+  resolve_timeout: 5m
+
+# Шаблоны для кастомизации уведомлений. Можно вынести в отдельный файл.
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Конфигурация маршрутизации алертов
+route:
+  # Корневой маршрут, на который попадают все алерты.
+  receiver: 'default-receiver'
+  # Группировка алертов по имени и источнику (job) для избежания "шторма" уведомлений.
+  group_by: [ 'alertname', 'job' ]
+  # Время ожидания перед отправкой уведомления для группы алертов (позволяет собрать больше алертов в одну группу).
+  group_wait: 30s
+  # Интервал времени, в течение которого новые алерты будут добавляться в уже существующую группу.
+  group_interval: 5m
+  # Интервал для повторной отправки уведомления, если алерт все еще активен.
+  repeat_interval: 4h
+
+  # Дочерние маршруты для специальной обработки.
+  routes:
+    # Маршрут для критических алертов.
+    - receiver: 'critical-alerts'
+      # Условие срабатывания: метка 'severity' равна 'critical'.
+      matchers:
+        - severity = 'critical'
+      # Если алерт соответствует этому маршруту, его обработка прекращается (он не пойдет дальше).
+      continue: false
+
+    # Маршрут для предупреждающих алертов.
+    - receiver: 'warning-alerts'
+      matchers:
+        - severity = 'warning'
+
+# Конфигурация получателей уведомлений
+receivers:
+  - name: 'default-receiver'
+    # Используем webhook для гибкости. Можно заменить на slack_configs, email_configs и т.д.
+    webhook_configs:
+      - url: 'http://localhost:5001/' # Пример URL, который может обрабатывать алерты
+        send_resolved: true # Отправлять уведомление, когда алерт разрешился.
+
+  - name: 'critical-alerts'
+    # Для критических алертов можно использовать другой канал, например PagerDuty.
+    # pagerduty_configs:
+    #   - routing_key: <your_pagerduty_routing_key>
+    webhook_configs:
+      - url: 'http://localhost:5001/critical'
+        send_resolved: true
+
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/warning'
+        send_resolved: true

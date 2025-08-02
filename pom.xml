@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent><!-- Наследование от spring-boot-starter-parent для удобного управления зависимостями Spring -->
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.1</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.mlops.example</groupId>
+    <artifactId>dl4j-mnist-service</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+    <name>dl4j-mnist-service</name>
+    <description>Сервис для распознавания цифр MNIST с MLOps практиками</description>
+    <properties><!-- Свойства, используемые для управления версиями по всему pom.xml -->
+        <java.version>17</java.version>
+        <dl4j.version>1.0.0-M2.1</dl4j.version>
+        <lombok.version>1.18.30</lombok.version>
+        <spotbugs.version>4.9.3.2</spotbugs.version>
+        <dependency-check.version>9.2.0</dependency-check.version>
+    </properties>
+    <dependencies><!-- Раздел зависимостей -->
+        <dependency><!-- Spring Boot: для создания веб-приложения -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency><!-- Spring Boot Actuator: для мониторинга и метрик -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency><!-- Micrometer: для экспорта метрик в формате Prometheus -->
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency><!-- Deeplearning4j: ядро библиотеки для работы с нейронными сетями -->
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-core</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency><!-- ND4J: бэкенд для DL4J, использующий нативные библиотеки для высокой производительности -->
+            <groupId>org.nd4j</groupId>
+            <artifactId>nd4j-native-platform</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency><!-- DL4J Datasets: утилиты для работы с датасетами, включая MNIST -->
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-datasets</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency><!-- DataVec: для векторизации данных, включая обработку изображений -->
+            <groupId>org.datavec</groupId>
+            <artifactId>datavec-data-image</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency><!-- DL4J UI: для визуализации процесса обучения (используется в модуле training) -->
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-ui</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency><!-- Jakarta Annotation: API для аннотаций, таких как @PostConstruct -->
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+        <dependency><!-- Lombok: для уменьшения шаблонного кода (геттеры, сеттеры, конструкторы) -->
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency><!-- Spring Boot Test: для написания тестов -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build><!-- Раздел сборки и плагинов -->
+        <plugins>
+            <plugin><!-- Плагин для сборки исполняемого JAR-файла Spring Boot -->
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <jvmArguments>-Dfile.encoding=UTF-8</jvmArguments>
+                </configuration>
+            </plugin>
+            <plugin><!-- Плагин компилятора -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin><!-- Плагин для запуска Unit-тестов -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>-Dfile.encoding=UTF-8</argLine>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude> <!-- Исключаем интеграционные тесты -->
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin><!-- Плагин для запуска Integration-тестов -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.5</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include> <!-- Включаем только интеграционные тесты -->
+                    </includes>
+                </configuration>
+            </plugin>
+            <plugin><!-- Плагин для статического анализа кода SpotBugs -->
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin><!-- Плагин для сканирования уязвимостей в зависимостях OWASP -->
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>${dependency-check.version}</version>
+                <configuration>
+                    <!-- Падение сборки, если найдена уязвимость с CVSS score 7.0 или выше -->
+                    <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                    <format>HTML</format>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

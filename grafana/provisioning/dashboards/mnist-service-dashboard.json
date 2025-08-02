@@ -1,0 +1,107 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Скорость обработки (RPS)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "sum(rate(predictions_requests_total_total[5m])) by (job)", "legendFormat": "{{job}}" }],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Латентность P95 / P99",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(predictions_latency_seconds_bucket[5m])) by (le, job))", "legendFormat": "P95 Latency" },
+        { "expr": "histogram_quantile(0.99, sum(rate(predictions_latency_seconds_bucket[5m])) by (le, job))", "legendFormat": "P99 Latency" }
+      ],
+      "unit": "s",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Частота ошибок предсказания",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "sum(rate(predictions_errors_total[5m])) by (job)", "legendFormat": "Errors per second" }],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "unit": "errs"
+    },
+    {
+      "id": 4,
+      "title": "Распределение предсказанных цифр",
+      "type": "barchart",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "sum(increase(predictions_class_distribution_total[5m])) by (digit)", "legendFormat": "Цифра {{digit}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 5,
+      "title": "HTTP Status Codes",
+      "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "sum(increase(http_server_requests_seconds_count{job='mnist-ml-service'}[5m])) by (status)", "legendFormat": "{{status}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "id": 6,
+      "title": "JVM Heap Memory Usage",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "sum(jvm_memory_used_bytes{area='heap', job='mnist-ml-service'}) by (job)", "legendFormat": "Used Heap" }],
+      "unit": "bytes",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "id": 7,
+      "title": "JVM GC Pauses",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "rate(jvm_gc_pause_seconds_sum[1m])", "legendFormat": "GC Pause Time" }],
+      "unit": "s",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": ["mlops"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MNIST Service Dashboard",
+  "uid": "mnist-dashboard",
+  "version": 2
+}

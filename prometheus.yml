@@ -1,0 +1,33 @@
+# Глобальные настройки
+global:
+  scrape_interval: 15s     # Как часто собирать метрики с целей (по умолчанию 1 минута)
+  evaluation_interval: 15s # Как часто вычислять правила алертинга
+
+# Указываем Prometheus, где искать файлы с правилами.
+rule_files:
+  - "rules.yml"
+
+# Настройки Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        # Указываем адрес Alertmanager внутри Docker-сети.
+        # Prometheus будет отправлять сработавшие алерты на этот адрес.
+        - targets: ['alertmanager:9093']
+
+# Конфигурация сбора метрик (скрапинга)
+scrape_configs:
+  # Работа для сбора метрик с самого Prometheus.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Работа для сбора метрик с нашего ML-сервиса.
+  - job_name: 'mnist-ml-service'
+    # Путь, по которому Spring Boot Actuator предоставляет метрики в формате Prometheus.
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      # `host.docker.internal` — специальное DNS-имя внутри Docker, которое
+      # резолвится в IP-адрес хост-машины. Это позволяет контейнеру Prometheus
+      # "достучаться" до приложения, запущенного на хосте (или в другом контейнере с проброшенным портом).
+      - targets: ['host.docker.internal:8080']

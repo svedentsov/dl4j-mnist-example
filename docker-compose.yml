@@ -1,0 +1,64 @@
+# Версия синтаксиса, используемая в файле. Рекомендуется использовать последние версии.
+version: '3.8'
+
+# Определение сервисов (контейнеров), которые будут запущены.
+services:
+
+  # --- Сервис Prometheus ---
+  # Prometheus отвечает за сбор и хранение метрик.
+  prometheus:
+    image: prom/prometheus:v2.47.2 # Используемый образ и его версия.
+    container_name: prometheus # Имя контейнера для удобства идентификации.
+    ports:
+      - "9090:9090" # Проброс порта 9090 с хост-машины на контейнер для доступа к UI Prometheus.
+    volumes:
+      # Монтирование конфигурационного файла Prometheus внутрь контейнера.
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      # Монтирование файла с правилами для Alertmanager.
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml
+    command:
+      # Переопределение команды запуска контейнера для указания пути к конфиг-файлу.
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - monitoring-net # Подключение к общей сети для взаимодействия с другими сервисами.
+
+  # --- Сервис Alertmanager ---
+  # Alertmanager обрабатывает алерты, отправленные Prometheus, и управляет уведомлениями.
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093" # Проброс порта для доступа к UI Alertmanager.
+    volumes:
+      - ./alertmanager/config.yml:/etc/alertmanager/config.yml # Монтирование конфигурации Alertmanager.
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    networks:
+      - monitoring-net
+
+  # --- Сервис Grafana ---
+  # Grafana используется для визуализации метрик из Prometheus в виде дашбордов.
+  grafana:
+    image: grafana/grafana-oss:10.2.2
+    container_name: grafana
+    ports:
+      - "3000:3000" # Проброс порта для доступа к UI Grafana.
+    restart: unless-stopped # Политика перезапуска: контейнер будет перезапущен, если не был остановлен вручную.
+    volumes:
+      # Монтирование директории с настройками провижининга (автоматическая конфигурация источников данных и дашбордов).
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      # Использование именованного volume для сохранения состояния Grafana (созданные вручную дашборды, пользователи и т.д.).
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - monitoring-net
+
+# --- Определение сетей ---
+# Создание общей сети для сервисов, чтобы они могли общаться друг с другом по именам.
+networks:
+  monitoring-net:
+    driver: bridge # Стандартный сетевой драйвер.
+
+# --- Определение volumes ---
+# Именованные volumes управляются Docker и позволяют сохранять данные между перезапусками контейнеров.
+volumes:
+  grafana-storage: {} # Определяем volume, который будет использоваться сервисом Grafana.
