@@ -65,11 +65,9 @@ public class UsePretrainedModel {
         INDArray predictedProbabilities = model.output(features);
         int predictedLabel = predictedProbabilities.argMax(1).getInt(0);
 
-        System.out.println("------------------------------------");
         System.out.println("Предсказание для одного примера:");
         System.out.println("Реальная цифра: " + actualLabel);
         System.out.println("Предсказанная цифра: " + predictedLabel);
-        System.out.println("------------------------------------");
 
         if (actualLabel == predictedLabel) {
             System.out.println("Результат верный!");
