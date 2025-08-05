@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -51,12 +52,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Обрабатывает исключение, возникающее, когда обязательная часть multipart-запроса отсутствует.
+     * Обрабатывает исключение, когда статический ресурс (CSS, JS, и т.д.) или эндпоинт не найден.
+     * Возвращает корректный HTTP-статус 404 Not Found.
      *
-     * @param exception перехваченное исключение {@link MissingServletRequestPartException}.
+     * @param exception перехваченное исключение {@link NoResourceFoundException}.
      * @param request   текущий веб-запрос.
-     * @return {@link ResponseEntity} со статусом 400 (Bad Request).
+     * @return {@link ResponseEntity} со статусом 404 (Not Found).
      */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException exception, WebRequest request) {
+        log.warn("Запрошен несуществующий ресурс: {}. Путь: {}", exception.getResourcePath(), request.getDescription(false));
+        return buildErrorResponse(exception, HttpStatus.NOT_FOUND, request, "Запрошенный ресурс не найден.", false);
+    }
+
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingPart(MissingServletRequestPartException exception, WebRequest request) {
         String message = "Обязательная часть запроса '" + exception.getRequestPartName() + "' отсутствует.";
@@ -134,7 +142,14 @@ public class GlobalExceptionHandler {
                 clientMessage,
                 request.getDescription(false)
         );
-        log.error("Перехвачено исключение: {}. Путь: {}. Сообщение для клиента: {}", exception.getClass().getSimpleName(), request.getDescription(false), clientMessage, exception);
+
+        // Логируем ошибки уровня 5xx как ERROR, а клиентские 4xx как WARN для чистоты логов
+        if (status.is5xxServerError()) {
+            log.error("Перехвачено исключение уровня 5xx: {}. Путь: {}. Сообщение для клиента: {}", exception.getClass().getSimpleName(), request.getDescription(false), clientMessage, exception);
+        } else {
+            log.warn("Перехвачено исключение уровня 4xx: {}. Путь: {}. Сообщение для клиента: {}", exception.getClass().getSimpleName(), request.getDescription(false), clientMessage);
+        }
+
         return new ResponseEntity<>(errorDetails, status);
     }
 }

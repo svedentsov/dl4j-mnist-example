@@ -45,6 +45,7 @@ public class PredictionResult {
      */
     public PredictionResult(int predictedLabel, Map<Integer, Double> probabilities) {
         this.predictedLabel = predictedLabel;
+        // Сортируем вероятности по убыванию для удобного отображения
         this.probabilities = probabilities.entrySet().stream()
                 .sorted(Map.Entry.<Integer, Double>comparingByValue().reversed())
                 .collect(Collectors.toMap(
@@ -56,7 +57,7 @@ public class PredictionResult {
 
     /**
      * Возвращает человеко-читаемое строковое представление результата.
-     * Идеально подходит для вывода в лог.
+     * Идеально подходит для вывода в лог или консоль.
      * <p>
      * Формат вывода включает в себя итоговый предсказанный класс и 5 наиболее
      * вероятных классов с их вероятностями в процентном формате.
@@ -65,15 +66,15 @@ public class PredictionResult {
      */
     @Override
     public String toString() {
-        // Используем DecimalFormat для красивого вывода процентов.
         DecimalFormat df = new DecimalFormat("#.##%");
         StringBuilder sb = new StringBuilder();
-        sb.append("Результат предсказания: ").append(predictedLabel).append("\n");
+        sb.append("ИТОГОВОЕ ПРЕДСКАЗАНИЕ: ").append(predictedLabel).append("\n");
+        sb.append("------------------------------------------\n");
         sb.append("Распределение вероятностей (топ-5):\n");
-        // Выводим 5 самых вероятных классов, чтобы не загромождать лог.
         probabilities.entrySet().stream()
                 .limit(5)
-                .forEach(entry -> sb.append(String.format("    Цифра %d: %s\n", entry.getKey(), df.format(entry.getValue()))));
+                .forEach(entry -> sb.append(String.format("    Цифра %d: %-10s%n", entry.getKey(), df.format(entry.getValue()))));
+        sb.append("------------------------------------------");
         return sb.toString();
     }
 }

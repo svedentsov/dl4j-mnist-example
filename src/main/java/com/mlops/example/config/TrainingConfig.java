@@ -1,5 +1,6 @@
 package com.mlops.example.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -97,6 +98,7 @@ public class TrainingConfig {
      *
      * @return Path к уникальной директории вывода.
      */
+    @JsonIgnore // Не сериализуем этот вычисляемый путь в JSON
     public Path getRunOutputDir() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         return baseOutputDir.resolve("train_" + timestamp);
@@ -114,8 +116,8 @@ public class TrainingConfig {
                 .epochs(2)
                 .batchSize(64)
                 .learningRate(1e-3)
-                .randomSeed(123)
-                .baseOutputDir(Paths.get("output"))
+                .randomSeed(12345)
+                .baseOutputDir(Paths.get(".")) // Сохраняем в корень проекта по умолчанию
                 .saveUpdater(true)
                 .build();
     }

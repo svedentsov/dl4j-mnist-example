@@ -16,8 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Класс, инкапсулирующий логику использования обученной модели.
+ * Класс, инкапсулирующий логику использования обученной модели (инференса).
  * Предоставляет методы для валидации на тестовом наборе и для предсказания на одном изображении.
+ * Отделен от основной логики сервиса для переиспользования в CLI-утилитах.
  */
 @Slf4j
 public class ModelPredictor {
@@ -33,14 +34,16 @@ public class ModelPredictor {
 
     /**
      * Выполняет валидацию модели на всем тестовом наборе данных MNIST.
+     * Этот метод является ключевым для регрессионного тестирования модели.
      *
-     * @return Объект {@link Evaluation} с результатами оценки.
+     * @return Объект {@link Evaluation} с результатами оценки (accuracy, F1, etc.).
      * @throws IOException если возникает ошибка при загрузке данных MNIST.
      */
     public Evaluation validateOnTestSet() throws IOException {
         log.info("Режим валидации: Проверка модели на тестовом наборе MNIST.");
         log.info("Загрузка тестового набора данных...");
-        DataSetIterator mnistTest = new MnistDataSetIterator(128, false, 123);
+        // Используем batch size 128 для быстрой оценки. Seed важен для воспроизводимости.
+        DataSetIterator mnistTest = new MnistDataSetIterator(128, false, 12345);
         log.info("Выполнение оценки...");
         Evaluation eval = model.evaluate(mnistTest);
         log.info("Оценка завершена.");
@@ -60,7 +63,7 @@ public class ModelPredictor {
         INDArray imageMatrix = preprocessImage(imageFile);
         // 2. Выполнение предсказания
         INDArray output = model.output(imageMatrix);
-        // 3. Формирование результата
+        // 3. Формирование структурированного результата
         int predictedLabel = output.argMax(1).getInt(0);
         Map<Integer, Double> probabilities = new HashMap<>();
         for (int i = 0; i < output.columns(); i++) {
@@ -69,10 +72,17 @@ public class ModelPredictor {
         return new PredictionResult(predictedLabel, probabilities);
     }
     
+    /**
+     * Приводит изображение к формату, который "понимает" нейронная сеть.
+     * @param imageFile Файл для обработки.
+     * @return Матрица INDArray, готовая для подачи в модель.
+     * @throws IOException при ошибке чтения файла.
+     */
     private INDArray preprocessImage(File imageFile) throws IOException {
+        // Загрузчик, который автоматически меняет размер и количество каналов
         NativeImageLoader loader = new NativeImageLoader(height, width, channels);
         INDArray imageMatrix = loader.asMatrix(imageFile);
-        // Важно: используем тот же скейлер, что и при обучении (MNIST данные нормированы на [0,1])
+        // Важно: используем тот же скейлер, что и при обучении (данные MNIST нормированы на [0,1])
         DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
         scaler.transform(imageMatrix);
         return imageMatrix;

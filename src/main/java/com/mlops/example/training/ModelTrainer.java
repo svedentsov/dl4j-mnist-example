@@ -15,10 +15,12 @@ import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
@@ -36,7 +38,8 @@ public class ModelTrainer {
     private final Path runOutputDir;
 
     // Имена файлов для артефактов. Использование констант обеспечивает консистентность.
-    public static final String MODEL_FILENAME = "pretrained_mnist_model.zip";
+    public static final String MODEL_FILENAME = "model.zip";
+    public static final String BEST_MODEL_FILENAME = "pretrained_mnist_model.zip";
     public static final String METADATA_FILENAME = "model_metadata.properties";
     public static final String CONFIG_FILENAME = "training_config.json";
     public static final String EVALUATION_FILENAME = "evaluation_report.txt";
@@ -59,39 +62,29 @@ public class ModelTrainer {
      */
     public void run() throws IOException {
         long startTime = System.currentTimeMillis();
-        log.info("Начало процесса обучения модели");
+        log.info("=== НАЧАЛО ПРОЦЕССА ОБУЧЕНИЯ МОДЕЛИ ===");
         log.info("Используемая конфигурация: {}", config);
 
-        // Шаг 1: Подготовка директории для результатов. Гарантирует, что у нас есть
-        // чистое и уникальное место для сохранения всех артефактов этого запуска.
         prepareOutputDirectory();
-
-        // Шаг 2: Загрузка данных. Разделение на тренировочный и тестовый наборы.
         DataSetIterator mnistTrain = loadDataSet(true);
         DataSetIterator mnistTest = loadDataSet(false);
-
-        // Шаг 3: Создание и инициализация модели с использованием фабрики.
-        // Это отделяет логику определения архитектуры от логики ее обучения.
         MultiLayerNetwork model = createAndInitModel();
 
-        // Шаг 4: Непосредственно обучение модели на тренировочных данных.
-        log.info("Начало обучения на {} эпох...", config.getEpochs());
+        log.info("Шаг 4/6: Начало обучения на {} эпох...", config.getEpochs());
         trainModel(model, mnistTrain);
         log.info("Обучение завершено.");
 
-        // Шаг 5: Оценка качества модели на тестовых данных, которые модель не видела во время обучения.
-        // Это самый важный шаг для QA, так как он показывает, насколько хорошо модель обобщает знания.
-        log.info("Начало оценки модели на тестовой выборке...");
+        log.info("Шаг 5/6: Начало оценки модели на тестовой выборке...");
         Evaluation evaluation = model.evaluate(mnistTest);
         log.info("Оценка завершена.");
 
-        // Шаг 6: Сохранение всех артефактов: самой модели, метрик, конфигурации и отчета.
-        // Это обеспечивает полную отслеживаемость и возможность аудита.
+        log.info("Шаг 6/6: Сохранение артефактов...");
         saveArtifacts(model, evaluation);
 
         long endTime = System.currentTimeMillis();
-        log.info("ПРОЦЕСС ОБУЧЕНИЯ УСПЕШНО ЗАВЕРШЕН за {} мс", (endTime - startTime));
+        log.info("=== ПРОЦЕСС ОБУЧЕНИЯ УСПЕШНО ЗАВЕРШЕН за {} мс ===", (endTime - startTime));
         log.info("Все артефакты сохранены в директории: {}", runOutputDir.toAbsolutePath());
+        log.info("Файл для использования сервисом скопирован в: {}", config.getBaseOutputDir().resolve(BEST_MODEL_FILENAME));
     }
 
     /**
@@ -100,6 +93,7 @@ public class ModelTrainer {
      * @throws IOException если не удается создать директорию.
      */
     private void prepareOutputDirectory() throws IOException {
+        log.info("Шаг 1/6: Подготовка директории для результатов...");
         Files.createDirectories(runOutputDir);
         log.info("Создана директория для результатов: {}", runOutputDir.toAbsolutePath());
     }
@@ -113,8 +107,7 @@ public class ModelTrainer {
      */
     private DataSetIterator loadDataSet(boolean isTrain) throws IOException {
         String type = isTrain ? "тренировочных" : "тестовых";
-        log.info("Загрузка {} данных MNIST (batchSize={}, seed={})...", type, config.getBatchSize(), config.getRandomSeed());
-        // Использование seed здесь также важно для воспроизводимости порядка данных.
+        log.info("Шаг {}/6: Загрузка {} данных MNIST...", isTrain ? 2 : 3, type);
         return new MnistDataSetIterator(config.getBatchSize(), isTrain, config.getRandomSeed());
     }
 
@@ -124,7 +117,7 @@ public class ModelTrainer {
      * @return Готовый к обучению объект {@link MultiLayerNetwork}.
      */
     private MultiLayerNetwork createAndInitModel() {
-        log.info("Создание архитектуры модели (LeNet-style)...");
+        log.info("Шаг 3/6: Создание архитектуры и инициализация модели...");
         LeNetModelFactory modelFactory = new LeNetModelFactory(config.getRandomSeed(), config.getLearningRate());
         MultiLayerConfiguration conf = modelFactory.build();
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
@@ -151,8 +144,7 @@ public class ModelTrainer {
                 // Полезно для быстрого контроля в консоли.
                 new ScoreIterationListener(100)
         );
-        log.info("Статистика обучения доступна в DL4J UI на http://localhost:9000 (необходимо запустить UI модуль отдельно).");
-        // Основной вызов, запускающий процесс обучения на заданное количество эпох.
+        log.info("Для визуального мониторинга запустите deeplearning4j-ui и откройте http://localhost:9000");
         model.fit(trainData, config.getEpochs());
     }
 
@@ -164,36 +156,38 @@ public class ModelTrainer {
      * @throws IOException при ошибках записи файлов.
      */
     private void saveArtifacts(MultiLayerNetwork model, Evaluation evaluation) throws IOException {
-        log.info("Сохранение артефактов обучения...");
-
-        // 1. Сохранение модели: сериализация объекта модели в zip-архив.
+        // 1. Сохранение модели в уникальную директорию запуска
         Path modelPath = runOutputDir.resolve(MODEL_FILENAME);
         ModelSerializer.writeModel(model, modelPath.toFile(), config.isSaveUpdater());
-        log.info("Артефакт модели сохранен в: {}", modelPath);
+        log.info("-> Артефакт модели сохранен в: {}", modelPath);
 
-        // 2. Сохранение метаданных: ключевые параметры и метрики в легко читаемом формате .properties.
+        // 2. Сохранение метаданных
         Path metadataPath = runOutputDir.resolve(METADATA_FILENAME);
         Properties metadata = createMetadata(evaluation);
         try (FileWriter writer = new FileWriter(metadataPath.toFile())) {
             metadata.store(writer, "ML Model Training Metadata");
         }
-        log.info("Файл метаданных сохранен в: {}", metadataPath);
+        log.info("-> Файл метаданных сохранен в: {}", metadataPath);
 
-        // 3. Сохранение конфигурации: полная копия объекта TrainingConfig в формате JSON.
-        // Это гарантирует 100% воспроизводимость, так как сохраняются абсолютно все параметры.
+        // 3. Сохранение конфигурации
         Path configPath = runOutputDir.resolve(CONFIG_FILENAME);
         ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         mapper.writeValue(configPath.toFile(), config);
-        log.info("Полная конфигурация запуска сохранена в: {}", configPath);
+        log.info("-> Полная конфигурация запуска сохранена в: {}", configPath);
 
-        // 4. Сохранение отчета об оценке: полный текстовый отчет, включая матрицу ошибок.
-        // Является основным "доказательством" качества модели для этого запуска.
+        // 4. Сохранение отчета об оценке
         Path reportPath = runOutputDir.resolve(EVALUATION_FILENAME);
         try (FileWriter writer = new FileWriter(reportPath.toFile())) {
             writer.write("Evaluation Report\n\n");
-            writer.write(evaluation.stats(true)); // true для вывода матрицы ошибок (confusion matrix).
+            writer.write(evaluation.stats(true)); // true для вывода матрицы ошибок
         }
-        log.info("Отчет об оценке сохранен в: {}", reportPath);
+        log.info("-> Отчет об оценке сохранен в: {}", reportPath);
+
+        // 5. Копирование модели в корневую директорию для использования сервисом
+        // В реальном CI/CD этот шаг был бы сложнее (например, загрузка в артефакт-репозиторий)
+        Path targetModelPath = new File(BEST_MODEL_FILENAME).toPath();
+        Files.copy(modelPath, targetModelPath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("-> Модель скопирована для использования сервисом.");
     }
 
     /**
